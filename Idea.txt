@@ -1,0 +1,459 @@
+# AETHER: Autonomous Elderly Ecosystem for Total Health Emergency Response & Optimization
+
+## 0) Executive Concept
+AETHER is an end-to-end Elderly Care OS that combines **ambient sensing + wearables + edge AI + agentic GenAI** to prevent emergencies, detect them instantly when they occur, and coordinate real-world response (family, neighbors, nurses, telehealth, emergency services).  
+It inherits Nomi’s core blueprint—multi-sensor network, on-device fall/posture detection (no video leaves device), cloud pipeline, AI insights, and caregiver alerts—and expands it into a production-grade ecosystem with specialized models per task. [page:5]
+
+---
+
+## 1) Problem Statement (Hackathon Theme Included)
+Design and build next-generation GenAI solutions that address real-world challenges across digital media, fintech, education, healthcare, sustainability, smart cities, and open novel innovation.
+
+### Problem Statement (Idea Submission)
+Elderly people living independently face cascading risks (falls, missed medications, dehydration/malnutrition, sleep decline, heat stress, wandering, delirium, and caregiver burnout) that are often detected late, while most monitoring systems are either invasive, fragmented, or too noisy to trust.
+
+### Who it impacts
+- Seniors aging in place, dementia/frailty risk, chronic conditions
+- Family caregivers (often remote) and neighborhood/community responders
+- Home-care nurses, assisted living staff
+- Telehealth clinicians and emergency departments (avoidable escalations)
+
+### Motivation
+Nomi shows that low-cost sensors + AWS pipeline + on-device posture detection + an LLM reasoning layer can deliver privacy-preserving monitoring and caregiver-ready insights. [page:5]  
+VitalCue demonstrates turning smartwatch data into actionable insights using Gemma, and AURA demonstrates objective triage insights using MedGemma and Vertex AI—both patterns AETHER repurposes for the home. [page:6]  
+Copi demonstrates that passive ingestion across everyday channels and a timeline-style “source of truth” reduces workflow friction and increases adoption—AETHER generalizes this for elderly care operations. [page:3]  
+ZophIA.tech shows speech-based mental health evaluation support as a direction AETHER can modularize for cognition/mood drift signals. [page:4]
+
+### Application
+**Where used:** homes, assisted living, community health programs, remote caregiving.  
+**Primary workflow:** prevent → detect → triage → coordinate response → document outcomes → learn personalized baselines.
+
+---
+
+## 2) System Overview (Hardware + Software)
+
+### 2.1 AETHER Hardware Ecosystem (Modular Kit)
+
+#### A) AETHER Hub (Edge Gateway)
+Purpose: local privacy boundary + offline-first operations.
+- Compute options: Raspberry Pi 5 / Jetson Orin Nano / NUC-class mini-PC (prototype can be a laptop).
+- Radios: Wi-Fi + BLE + optional Zigbee/Thread dongle.
+- Services: device registry, encryption, edge inference runtime, local event bus, OTA updates, local cache, local emergency siren control.
+
+#### B) AETHER SenseMesh Nodes (ESP32/MCU fleet)
+Purpose: cheap, distributed sensing with secure telemetry.
+- Node baseline sensors:
+  - Temp/Humidity (comfort + heat stress)
+  - PIR/mmWave (presence/motion)
+  - Contact sensors (doors/fridge/bathroom)
+  - Pressure film / load cell (object interactions)
+- Capabilities:
+  - Secure provisioning (per-device keys)
+  - Time sync (NTP via hub)
+  - Offline buffering
+  - Self-test + calibration routines
+  - Tamper detection (case open, unplug, battery pull)
+
+#### C) AETHER MedDock (Medication Station)
+Inherits Nomi’s pillbox pressure film detection concept. [page:5]
+- Hardware:
+  - Pressure film under pillbox + compartment reed switches (slot opened)
+  - Optional camera *inside the box lid* (only captures pills, not the room)
+  - NFC tags on prescription bottles
+- Functionality:
+  - Detect open + which compartment + duration + repeat opens
+  - Detect “dose confusion” patterns (open-close-open loops)
+  - Refill estimation and reorder drafting (human-approved)
+
+#### D) AETHER MealTrack + HydroTrack
+Inherits Nomi’s eating activity detection concept. [page:5]
+- Hardware:
+  - Load cell under plate area (meal presence)
+  - Utensil pressure pad (eating motion proxy)
+  - Bottle load cell (hydration)
+- Functionality:
+  - Meal cadence + missed meal detection
+  - Hydration drift (daily target vs baseline)
+  - Heat-stress coupling (high temp/humidity + low hydration → proactive escalation)
+
+#### E) AETHER BedSense (Sleep + Respiration Proxy)
+- Under-mattress pressure strip:
+  - Bed presence, toss/turn, bed exits, sleep fragmentation
+- Optional acoustic node (privacy-safe):
+  - Stores only derived features (snore/cough counts), not raw audio by default
+
+#### F) AETHER Mobility Layer (Fall + Gait + Posture)
+**Privacy-first default** mirrors Nomi: on-device posture/fall inference; video never leaves the device. [page:5]
+- Option 1: Pose-only edge camera
+  - Wide-angle camera pointed at “safe zones” (corridor near bathroom)
+  - On-device pose extraction; upload only pose vectors + event labels (no frames)
+- Option 2: Wearable IMU band (backup path)
+  - Accelerometer/gyro fall signature + post-fall immobility
+- Option 3: Floor vibration node (ultra-private)
+  - Piezo + signal processing to detect heavy impacts (coarse, but privacy-max)
+
+#### G) AETHER AirSafe + KitchenSafe + BathSafe
+- AirSafe: CO2/VOC/PM2.5 trends (respiratory stress proxy)
+- KitchenSafe: stove heat + “left on” + presence correlation
+- BathSafe: humidity spike + motion + long-stillness detection (high-risk zone)
+
+#### H) AETHER SOS + Neighbor Beacon (Hard Fail-Safe)
+- Wearable pendant + wall buttons
+- Hub-driven siren + optional neighbor beacon relay
+- Hardwired escalation rules that do not depend on LLM output
+
+---
+
+### 2.2 AETHER Software Ecosystem (Production-Grade)
+
+#### A) Edge Software (Hub)
+- Device onboarding + cert/key rotation
+- Edge event normalization (single schema for all sensors)
+- Local inference runtimes:
+  - Pose/posture/fall pipeline (MediaPipe/OpenCV style as in Nomi) [page:5]
+  - Sleep segmentation
+  - Local anomaly checks (fast rules) for offline emergency response
+- Privacy layer:
+  - “Event-only uplink” default (labels + timestamps + confidence), mirroring Nomi’s privacy-by-design approach. [page:5]
+- Local “Safety Loop”:
+  - If fall suspected → voice prompt → wait → escalate → siren → notify chain
+
+#### B) Cloud Backend
+Nomi’s cloud pattern (AWS Lambda → DynamoDB → FastAPI → React dashboard) is a proven baseline AETHER extends into multiple services. [page:5]
+- Ingestion:
+  - API Gateway + Lambda validation + event store (DynamoDB/TimeSeries DB)
+- Core services:
+  - Resident service (profiles, conditions, permissions)
+  - Timeline service (all events normalized)
+  - Alerting + escalation service (SLA-based routing)
+  - CareOps service (tasks, assignments, outcomes)
+- Integration services:
+  - Wearable ingest connectors (Apple Health / Google Fit exports; vendor APIs)
+  - Messaging (SMS/WhatsApp-style flows)
+  - Telehealth handoff + evidence packet export (PDF/JSON)
+  - Optional FHIR gateway (patient portal / EHR pilot)
+
+#### C) Apps
+- Senior app (voice-first, large UI, “dignity mode”)
+- Caregiver app (timeline + alerts + tasks + checklists)
+- Nurse/staff console (shift-based triage)
+- Admin console (device fleet, OTA, metrics)
+
+---
+
+## 3) Model Suite (Different Models for Different Use Cases)
+
+AETHER uses a **routing strategy**: small/fast models for detection + larger reasoning models only for summarization/triage, plus specialized models for medical text and speech.
+
+### 3.1 Edge Models (Safety-Critical, Low Latency)
+1) Pose & posture extraction (Edge):
+- MediaPipe Pose / BlazePose-style pipeline (CPU/GPU)
+- Output: skeleton keypoints, posture class, fall probability
+
+2) Fall event classifier (Edge):
+- Model: lightweight temporal classifier over pose vectors (TCN/1D-CNN/LSTM)
+- Output: {fall_detected, confidence, inactivity_after_fall}
+
+3) Room-activity classifier (Edge, camera-free alternative):
+- Model: sensor fusion model over PIR/mmWave/door/pressure sensors (XGBoost/LightGBM)
+- Output: ADL states (sleeping, eating, bathroom visit, out-of-home)
+
+4) On-device speech feature extraction (Optional):
+- Model: VAD + embeddings (stores embeddings/features, not raw audio by default)
+
+### 3.2 Cloud Models (Reasoning + Summarization + Operations)
+
+#### A) “Care Coach” Reasoning LLM (Core)
+- Baseline compatible with Nomi: NVIDIA NIM running Llama-3.1-Nemotron-8B for plain-language, structured reasoning over sensor data. [page:5]
+- Output schema: JSON with evidence pointers (event IDs, time windows), uncertainty, safe actions.
+
+#### B) Wearable Insight LLM (Preventive Signals)
+- Inspired by VitalCue converting smartwatch data to actionable insights using Gemma. [page:6]
+- Model: Gemma-family LLM for efficient daily summaries + trend interpretation.
+
+#### C) Medical Triage/Clinical Language Model (Optional “Clinician-grade” mode)
+- Inspired by AURA providing objective triage insights built with MedGemma and Vertex AI. [page:6]
+- Model: MedGemma for medical phrasing, symptom triage templates, and clinical summarization.
+
+#### D) Timeline + Passive Ingestion Extractor
+- Inspired by Copi’s passive ingestion + timeline pattern. [page:3]
+- Models:
+  - Multimodal extractor for images/docs (OCR + VLM)
+  - Text classifier to convert messages into structured events (med change, symptom report, appointment, mood)
+- Output: normalized “Care Timeline Events” with confidence and provenance.
+
+#### E) Voice/Call Agent Models (CareOps Automation)
+- Use-case: pharmacy calls, appointment scheduling, neighbor escalation.
+- Models:
+  - ASR model (low latency)
+  - Dialogue policy model (tool-using agent)
+  - Safety filter model (PHI handling + escalation constraints)
+- Pattern inspired by hackathon projects using bot-mediated coordination workflows and voice automation concepts. [page:3]
+
+### 3.3 Model Router (Policy Engine)
+- Routes tasks by:
+  - Risk tier (normal vs urgent)
+  - Data sensitivity (privacy mode)
+  - Latency needs (edge vs cloud)
+  - Required expertise (Gemma vs Nemotron vs MedGemma)
+
+---
+
+## 4) Datasets / Data Sources (Granular)
+
+### 4.1 Core Sensor + Time-Series Data
+A) Synthetic “Digital Household Generator”
+- Generates 90 days of realistic routines:
+  - meds (schedule adherence + slips)
+  - meals (cadence, skipped meals)
+  - sleep (fragmentation, bed exits)
+  - environment (heat waves, humidity spikes)
+  - caregiver interactions (missed calls, confirmations)
+- Used for:
+  - end-to-end pipeline load tests
+  - LLM prompt/evidence evaluation
+  - alert fatigue simulations
+
+B) Real pilot data (consented)
+- Minimal data mode: event labels only (privacy-first), aligned with Nomi’s approach. [page:5]
+
+### 4.2 Fall / Posture / Activity Datasets (Model Training Candidates)
+- Public fall detection datasets (video-based and sensor-based)
+- Human activity recognition datasets (wearable IMU + ADL labels)
+- Pose estimation benchmark datasets (for robustness across lighting/angles)
+
+### 4.3 Sleep / Respiration Proxy Data
+- Bed pressure / actigraphy-like datasets (if available)
+- Wearable sleep stage exports (as weak labels)
+- Internal staged data with controlled scenarios
+
+### 4.4 Medication & Nutrition Signals
+- Medication schedule templates + adherence labels (synthetic + caregiver confirmed)
+- Meal event labeling set (staged meals + sensor signatures)
+
+### 4.5 Speech / Cognition (Optional Module)
+ZophIA.tech demonstrates speech-based mental disorder evaluation support; AETHER uses this as a modular “speech drift” component rather than diagnostic output. [page:4]
+- Candidate datasets:
+  - Dementia speech benchmarks (public challenges)
+  - Emotion/stress speech datasets
+  - Multilingual speech datasets for Indian accents (for ASR robustness)
+
+### 4.6 Medical Knowledge Sources (RAG)
+- Drug interaction references (licensed or public)
+- Caregiver guidance playbooks
+- Heat stress and fall-prevention checklists (local policy)
+
+---
+
+## 5) Experiments & Evaluation (Per Module)
+
+### 5.1 Edge Fall Detection
+- Metrics: precision/recall, FPR per day, mean detection latency, post-fall immobility sensitivity
+- Robustness: lighting, occlusion, camera angle, multi-person confusion
+
+### 5.2 Medication Adherence
+- Metrics: missed-dose detection accuracy, double-dose risk detection, refill prediction error
+- Human verification: caregiver confirmations as ground truth
+
+### 5.3 Meal + Hydration
+- Metrics: skipped-meal detection, hydration drift sensitivity, false “missed meal” rates on guests/visitors
+- Coupling tests: heat + low hydration → escalation correctness
+
+### 5.4 Alert Fatigue
+- Metrics: alerts/day, acknowledgement rate, time-to-ack, “action taken” rate
+- Context-aware suppression test aligned with known approaches to reduce redundant alarms. [web:22]
+
+### 5.5 LLM Insight Quality
+- Metrics:
+  - Evidence correctness (did it cite real events?)
+  - Hallucination rate (unsupported claims)
+  - Actionability score (caregiver-rated)
+  - Safety compliance (no diagnosis claims; escalation recommendations bounded)
+
+### 5.6 End-to-End Emergency Response
+- Drill scenarios:
+  - fall + no response
+  - wandering at night
+  - stove left on + no motion
+  - dehydration + heat wave
+- Measure: time-to-notify, time-to-help, outcome logging completion
+
+---
+
+## 6) Features (Ultra-Comprehensive)
+
+### 6.1 Prevention & Optimization
+- Personalized routine baseline + drift detection (sleep/meal/mobility)
+- “Micro-intervention engine”: hydration prompts, posture stretch nudges, light-based circadian nudges
+- Heat-stress anticipator: weather + indoor sensors + hydration drift → proactive plan
+- “Frailty trajectory tracker”: slow decline detection from mobility + sleep fragmentation + meal cadence
+
+### 6.2 Detection (Continuous)
+- Falls + posture (edge)
+- Silent decline:
+  - fewer kitchen interactions
+  - fewer bathroom trips (dehydration risk) or too many (UTI/diuretic issues)
+  - rising nighttime bed exits (fall risk)
+- Environmental hazards:
+  - stove heat without presence
+  - air quality deterioration + cough feature spikes
+
+### 6.3 Emergency Response (Autonomous)
+- Multi-step escalation:
+  1) Local voice prompt + chime
+  2) Family caregiver push/SMS
+  3) Secondary caregiver + neighbor beacon
+  4) Nurse hotline / telehealth
+  5) Emergency services handoff packet
+- “Live incident room”:
+  - timeline + tasks + responders + chat
+- Evidence packets:
+  - last 72 hours drift + event trace + confidence + actions taken
+
+### 6.4 CareOps (The “Caregiver OS”)
+- Copi-style passive ingestion generalized:
+  - WhatsApp-style group thread where AETHER participates; messages/photos become timeline events and reminders. [page:3]
+- Shared tasks + SLAs:
+  - meds refill, groceries, check-in calls, appointment booking
+- Caregiver load balancing:
+  - route tasks to whoever is available; burnout-aware scheduling
+
+### 6.5 Clinical Bridge (Optional)
+- Home triage cards inspired by AURA’s objective triage insight concept. [page:6]
+- “Post-discharge mode”:
+  - convert discharge instructions into tasks + reminders + monitoring triggers
+- FHIR export:
+  - structured observation bundles for clinician review
+
+### 6.6 Privacy, Trust, and Governance
+- Privacy-by-design posture detection (local processing; event labels only) consistent with Nomi’s approach. [page:5]
+- Privacy modes:
+  - Event-only (default)
+  - Event + derived stats
+  - Event + pose vectors (still no raw video)
+- “Explain my alert” and “Explain suppression”
+- Tamper detection + sensor health monitoring
+- Cryptographic audit log of events and actions
+
+---
+
+## 7) USPs (40+)
+
+1. Dual-path safety: rule-based emergency loop works even if GenAI fails.
+2. Evidence-first GenAI: every claim must cite an event/time window or be rejected.
+3. Multi-model routing (Gemma/Nemotron/MedGemma) based on risk and context. [page:5][page:6]
+4. Pose-only uplink: privacy while retaining strong fall sensitivity.
+5. Bed exit anomaly → fall prevention workflow (lights + reminders + caregiver task).
+6. Hydration estimation + heat coupling (predict dehydration events).
+7. Stove+presence correlation (prevents kitchen hazards).
+8. “Wandering containment” with neighbor beacon network.
+9. Passive ingestion timeline that turns chats/photos into structured care events. [page:3]
+10. Incident war-room with responder roles and SLAs.
+11. Refill forecasting + pharmacy call agent.
+12. Appointment booking agent + transport coordination.
+13. “Caregiver burnout meter” and auto-redistribution.
+14. Digital twin routine simulator for intervention testing.
+15. Federated personalization (privacy-safe learning).
+16. Sensor drift and failure self-diagnosis.
+17. Explainable suppression (why not alerted).
+18. “Visitor detection mode” to prevent false anomalies.
+19. Multi-resident disambiguation (room-level identity logic).
+20. Offline-first: local siren + local alerts + buffered telemetry.
+21. “Proof of care” logs: tasks completed, outcomes recorded.
+22. Senior dignity UI: minimal medical jargon.
+23. Multi-language voice prompts.
+24. Automated “weekly clinician brief” packet.
+25. Cross-signal fall risk score (sleep fragmentation + night exits + gait drift).
+26. Bathroom-risk sentinel (humidity spike + long stillness).
+27. Kitchen nutrition proxy (fridge opens + meal cadence).
+28. Care plan generation with constraints (arthritis, insomnia).
+29. Medication confusion loop detection (open-close-open).
+30. Safe-mode escalation policies per family preferences.
+31. Emergency contact verification (monthly check).
+32. Home layout onboarding (room map) for context-aware inference.
+33. A/B testing engine for interventions (measure what works per person).
+34. Consent ledger with fine-grained controls per sensor.
+35. Red-team prompt suite and hallucination gate.
+36. Role-based PHI views (neighbor sees minimal info, nurse sees more).
+37. “Community responder program” integration.
+38. Facility mode with shift handoffs.
+39. Telehealth “one-click” join from incident room.
+40. Continuous calibration wizard in app.
+
+---
+
+## 8) Requirements (Expanded)
+
+### Functional Requirements
+- FR-Edge-01: On-device fall detection and local alerting within 2 seconds.
+- FR-Edge-02: Event-only uplink default (no raw video/audio). [page:5]
+- FR-Cloud-01: Ingest >= 50 events/sec per home burst and remain consistent.
+- FR-Care-01: Escalation ladder with ack + retry + fallback contacts.
+- FR-LLM-01: LLM outputs must conform to JSON schema with evidence pointers.
+- FR-UX-01: Timeline view must merge sensors + notes + media + tasks.
+
+### Non-Functional Requirements
+- NFR-SEC-01: Encryption in transit/at rest; signed firmware; rotated keys.
+- NFR-REL-01: Offline-first with eventual consistency.
+- NFR-SAF-01: No diagnosis statements; triage is advisory; escalation safe defaults.
+- NFR-OBS-01: Metrics, traces, device health dashboards, incident logs.
+
+---
+
+## 9) Deliverables
+
+### Hardware deliverables
+- 6 working nodes: MedDock, MealTrack, HydroTrack, BedSense, DoorSense, HeatStress
+- 1 working fall detection path (pose-only camera OR wearable IMU) with local alert loop
+- Hub: onboarding + encryption + offline queue + OTA stub + siren control
+
+### Software deliverables
+- Cloud ingestion + event store + time-series dashboards (Nomi-like baseline extended). [page:5]
+- Caregiver web app (timeline + alerts + tasks + incident room)
+- GenAI Orchestrator with model routing:
+  - Nemotron-based reasoning (NIM compatible) [page:5]
+  - Gemma wearable summarizer [page:6]
+  - MedGemma triage summarizer (optional) [page:6]
+- Evidence packet generator + export
+
+### Documentation deliverables
+- Threat model + data-flow diagrams
+- Model cards (per module) + evaluation report
+- Runbooks + CI/CD + IaC
+
+---
+
+## 10) One-Month Build Plan (Highly Granular)
+
+### Week 1 — Foundations + Hub + Schema
+- Define canonical schemas: Event, Signal, Alert, Task, EvidencePacket
+- Build Hub: device registry + MQTT broker + local DB + encryption
+- Build Cloud: ingestion + DynamoDB/time-series + React dashboard skeleton (Nomi pattern). [page:5]
+
+### Week 2 — Core ADL + Safety Loop
+- Implement MedDock + MealTrack + HydroTrack telemetry
+- Implement BedSense (bed presence + exits)
+- Implement fall detection path with local escalation
+- Implement alert routing + acknowledgements + escalation
+
+### Week 3 — GenAI + Timeline + Wearables
+- Implement model router + prompt/evidence gating
+- Add Nemotron/NIM-compatible insight generator (Nomi-style) [page:5]
+- Add wearable ingest + Gemma-based “actionable insights” module (VitalCue pattern) [page:6]
+- Add Copi-style passive ingestion timeline (group thread ingestion, event extraction). [page:3]
+
+### Week 4 — Triage + Evidence + Hardening
+- Add MedGemma triage card generator (AURA pattern) [page:6]
+- Build incident room + evidence packet export
+- Add privacy modes + retention + consent center
+- Load tests, fault injection, offline drills, demo simulator (“90 days in 15 minutes”)
+
+---
+
+## 11) Demo Scenarios (End-to-End)
+1) Heat wave + low hydration drift → proactive intervention plan + caregiver follow-up.
+2) Missed meds + confusion loop → MedDock prevention + caregiver task + refill agent.
+3) Night wandering + repeated bed exits → lights plan + neighbor beacon if escalation.
+4) Fall + no response → local siren + multi-contact escalation + evidence packet.
+
+---
